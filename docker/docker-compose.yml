@@ -1,0 +1,160 @@
+version: '2.1'
+
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:1.6
+    container_name: jaeger
+    environment:
+      - COLLECTOR_ZIPKIN_HTTP_PORT=9411
+    ports:
+      - '5775:5775/udp'
+      - '6831:6831/udp'
+      - '6832:6832/udp'
+      - '5778:5778'
+      - '16686:16686'
+      - '14268:14268'
+      - '9411:9411'
+    restart: always
+
+  fluentd:
+    build: ./fluentd
+    container_name: fluentd
+    volumes:
+      - ./fluentd/conf:/fluentd/etc
+    links:
+      - 'elasticsearch'
+    ports:
+      - '24224:24224'
+      - '24224:24224/udp'
+    restart: always
+
+  process-manager:
+    image: 'teldev/melonade-process-manager:0.11.4'
+    container_name: process-manager
+    ports:
+      - '8081:8080'
+    depends_on:
+      - 'mongo'
+      - 'zookeeper'
+      - 'kafka'
+    environment:
+      - melonade.namespace=docker-compose
+      - melonade.example=true
+      - runners.max=1
+      - kafka.conf.bootstrap.servers=kafka:9092
+      - server.hostname=0.0.0.0
+      - server.port=8080
+      - server.enabled=true
+      - topic.kafka.number_partitions=10
+      - topic.kafka.replication_factor=1
+      - task-definition.type=ZOOKEEPER
+      - task-definition.zookeeper.connections=zookeeper:2181
+      - workflow-definition.type=ZOOKEEPER
+      - workflow-definition.zookeeper.connections=zookeeper:2181
+      - task-instance.type=MONGODB
+      - task-instance.mongodb.uri=mongodb://mongo:27017/dbName
+      - workflow-instance.type=MONGODB
+      - workflow-instance.mongodb.uri=mongodb://mongo:27017/dbName
+      - transaction-instance.type=MONGODB
+      - transaction-instance.mongodb.uri=mongodb://mongo:27017/dbName
+    restart: always
+
+  event-logger:
+    image: 'teldev/melonade-event-logger:0.10.2'
+    container_name: event-logger
+    ports:
+      - '8082:8080'
+    depends_on:
+      'elasticsearch':
+        condition: service_healthy
+      'kafka':
+        condition: service_started
+      'process-manager':
+        condition: service_started
+    environment:
+      - melonade.namespace=docker-compose
+      - runners.max=1
+      - server.hostname=0.0.0.0
+      - server.port=8080
+      - server.enabled=true
+      - topic.kafka.number_partitions=10
+      - topic.kafka.replication_factor=1
+      - kafka.conf.bootstrap.servers=kafka:9092
+      - event-store.type=ELASTICSEARCH
+      - event-store.elasticsearch.hosts=http://elasticsearch:9200
+    restart: always
+
+  time-keeper:
+    image: 'teldev/melonade-time-keeper:0.11.2'
+    depends_on:
+      - 'mongo'
+      - 'zookeeper'
+      - 'kafka'
+      - 'process-manager'
+    environment:
+      - melonade.namespace=docker-compose
+      - runners.max=1
+      - topic.kafka.number_partitions=10
+      - topic.kafka.replication_factor=1
+      - kafka.conf.bootstrap.servers=kafka:9092
+    restart: always
+
+  front-end:
+    image: 'teldev/melonade-front-end:0.11.5'
+    ports:
+      - '8083:80'
+    depends_on:
+      - 'event-logger'
+      - 'process-manager'
+    environment:
+      - PORT=80
+      - EVENT_LOGGER_HTTP_BASEURL=http://event-logger:8080/
+      - PROCESS_MANAGER_HTTP_BASEURL=http://process-manager:8080/
+    restart: always
+
+  mongo:
+    image: 'mongo:4'
+    ports:
+      - '27017:27017'
+    restart: always
+
+  elasticsearch:
+    image: 'elasticsearch:6.8.5'
+    ports:
+      - '9200:9200'
+      - '9300:9300'
+    environment:
+      - discovery.type=single-node
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl --silent --fail localhost:9200/_cluster/health || exit 1',
+        ]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    restart: always
+
+  zookeeper:
+    image: 'bitnami/zookeeper:3'
+    ports:
+      - '2181:2181'
+    environment:
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    restart: always
+
+  kafka:
+    image: 'bitnami/kafka:2'
+    ports:
+      - '9092:9092'
+      - '29092:29092'
+    environment:
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper:2181
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,PLAINTEXT_HOST://:29092
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+    depends_on:
+      - zookeeper
+    restart: always
