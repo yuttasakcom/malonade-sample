@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/index.js --exec babel-node"
+    "dev": "nodemon src/index.ts --exec ts-node"
   },
   "repository": {
     "type": "git",
@@ -17,16 +17,14 @@
     "url": "https://github.com/yuttasakcom/melonade-sample/issues"
   },
   "homepage": "https://github.com/yuttasakcom/melonade-sample#readme",
+  "devDependencies": {
+    "nodemon": "^2.0.2",
+    "ts-node": "^8.6.2",
+    "typescript": "^3.7.5"
+  },
   "dependencies": {
     "@spksoft/koa-decorator": "^1.2.2",
+    "@types/koa": "^2.11.1",
     "koa": "^2.11.0"
-  },
-  "devDependencies": {
-    "@babel/core": "^7.8.4",
-    "@babel/node": "^7.8.4",
-    "@babel/plugin-proposal-class-properties": "^7.8.3",
-    "@babel/plugin-proposal-decorators": "^7.8.3",
-    "@babel/preset-env": "^7.8.4",
-    "nodemon": "^2.0.2"
   }
 }
