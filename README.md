@@ -13,3 +13,9 @@ $ npm i -D nodemon ts-node typescript
 ```bash
 $ npm i -S koa @types/koa @spksoft/koa-decorator
 ```
+
+## Setup Melonade
+
+```bash
+$ npm i -S @melonade/melonade-client
+```
