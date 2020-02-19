@@ -13,6 +13,7 @@ const port = process.env.PORT || 3000
 const router = load(resolve(__dirname, 'controllers'), '.controller.ts')
 
 t1Worker.on('ready', () => console.log('t1Work ready'))
+
 t2Worker.on('ready', () => console.log('t2Work ready'))
 t3Worker.on('ready', () => console.log('t3Work ready'))
 
